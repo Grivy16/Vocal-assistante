@@ -75,7 +75,9 @@ class Assistant:
         
         if data["version"] > self.version:
             try :
-                subprocess.Popen(["start", "cmd", "/k", "python", "update.py"], shell=True)
+                with open("log.txt", "w", encoding="utf-8") as f:
+                    subprocess.Popen(["python", "update.py"], stdout=f, stderr=f, creationflags=subprocess.CREATE_NO_WINDOW)
+
                 self.stop_microphone()
                 window.destroy()
                 os._exit(0)
