@@ -417,3 +417,4 @@ if __name__ == "__main__":
 
     threading.Thread(target=assistant.run, daemon=True).start()
     webview.start()
+
