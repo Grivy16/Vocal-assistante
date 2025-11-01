@@ -350,6 +350,17 @@ shutdownbtn.addEventListener("click", async () => {
     await window.pywebview.api.shutdown_pi();
 });
 
+const updatebtn = document.getElementById("update");
+
+updatebtn.addEventListener("click", async () => {
+    if (window.pywebview && window.pywebview.api && window.pywebview.api.update) {
+        try {
+            await window.pywebview.api.update();
+        } catch(e) {
+            console.warn("Erreur lors de l'appel update:", e);
+        }
+    }
+});
 
 const savebtn = document.getElementById("savebtn");
 
@@ -428,6 +439,7 @@ function showError(message, options = {}) {
     if (el) {
         el.innerText = message;
         el.style.display = "block";
+        el.style.color = "red";
         // possibilité d'ajouter animation / style ici
         if (options.autoHide !== false) {
             const t = typeof options.timeout === 'number' ? options.timeout : 6000;
@@ -437,6 +449,28 @@ function showError(message, options = {}) {
         }
     } else {
         console.warn("showError: élément .error introuvable — message:", message);
+    }
+
+    // log côté console pour debug
+    console.error("UI Error:", message);
+}
+
+function showInfo(message, options = {}) {
+
+    const el = document.querySelector('.error');
+    if (el) {
+        el.innerText = message;
+        el.style.display = "block";
+        el.style.color = "#00ad00ff";
+        // possibilité d'ajouter animation / style ici
+        if (options.autoHide !== false) {
+            const t = typeof options.timeout === 'number' ? options.timeout : 30000;
+            setTimeout(() => {
+                try { el.style.display = "none"; el.innerText = ""; } catch(e) {}
+            }, t);
+        }
+    } else {
+        console.warn("showinfo: élément .error introuvable — message:", message);
     }
 
     // log côté console pour debug
@@ -466,6 +500,11 @@ function showGeneralError(msg) {
 function showplateformError(msg) {
     showError(msg || "Execute this command in a Linux platform.");
 }
+
+function showUpdateAvailable() {
+    showInfo("A new version of the application is available! Please update to the latest version in the settings.");
+}
+
 function setProgress(percent) {
     if (percent < 0) percent = 0;
     if (percent > 100) percent = 100;
@@ -477,3 +516,4 @@ function setProgress(percent) {
     progressBar.style.width = percent + "%";
     progressText.textContent = percent + "%";
 }
+
