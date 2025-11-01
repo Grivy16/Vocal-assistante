@@ -74,39 +74,10 @@ class Assistant:
         data = response.json()
         
         if data["version"] > self.version:
-            file_input = "update"
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            possible_files = [f"{file_input}.py", f"{file_input}.exe"]
-            found_file = None
-            
-            # Cherche le fichier update
-            for f in possible_files:
-                path = os.path.join(current_dir, f)
-                if os.path.isfile(path):
-                    found_file = path
-                    break
-            
-            if not found_file:
-                print(f"Aucun fichier trouvé pour : {file_input}")
-                return  # On ne quitte pas le programme si pas de fichier update
-            
-            base_name, ext = os.path.splitext(os.path.basename(found_file))
-            print(f"Nom du fichier trouvé : {base_name}, extension : {ext}")
-            
-            try:
-                # Lancer le fichier update dans un nouveau processus
-                if ext.lower() == ".exe":
-                    subprocess.Popen([found_file], close_fds=True)
-                elif ext.lower() == ".py":
-                    subprocess.Popen([sys.executable, found_file], close_fds=True)
-                else:
-                    print(f"Extension non supportée : {ext}")
-                    return
-                
-                print("[INFO] Update lancé, fermeture de l'application...")
-                # Fermer le micro proprement
+            try :
+                subprocess.Popen(["start", "cmd", "/k", "python", "update.py"], shell=True)
                 self.stop_microphone()
-                # Quitter complètement l'application
+                window.destroy()
                 os._exit(0)
 
             except Exception as e:
@@ -417,4 +388,3 @@ if __name__ == "__main__":
 
     threading.Thread(target=assistant.run, daemon=True).start()
     webview.start()
-
