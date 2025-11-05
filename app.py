@@ -53,8 +53,7 @@ class Assistant:
             "version": {"default": "1.0", "attr": "version", "readonly": True},
             "name": {"default": "", "attr": "name"},
             "job": {"default": "", "attr": "job"},
-            "other": {"default": "", "attr": "other"},
-            "test": {"default": "", "attr": "test"}
+            "other": {"default": "", "attr": "other"}
         }
         
         self.load_settings()
@@ -625,3 +624,4 @@ if __name__ == "__main__":
     threading.Thread(target=assistant.run, daemon=True).start()
 
     webview.start()
+
