@@ -1,3 +1,142 @@
+// ========== SYSTÈME CENTRALISÉ DE GESTION DES SETTINGS ==========
+
+/**
+ * Configuration des champs de settings
+ * Pour ajouter un nouveau champ, il suffit d'ajouter une ligne ici !
+ */
+const SETTINGS_CONFIG = {
+    apiKey: {
+        elementId: 'apiKey',
+        getPythonFunc: 'get_api_key',
+        setPythonFunc: 'change_api',
+        defaultValue: ''
+    },
+    keyword: {
+        elementId: 'KeyWord',
+        getPythonFunc: 'get_keyword',
+        setPythonFunc: 'change_keyword',
+        defaultValue: 'maxt'
+    },
+    voice: {
+        elementId: 'Voicemenu',
+        getPythonFunc: 'get_voice',
+        setPythonFunc: 'change_voice',
+        defaultValue: 'nova'
+    },
+    mode: {
+        elementId: 'Modemenu',
+        getPythonFunc: 'get_mode',
+        setPythonFunc: 'change_mode',
+        defaultValue: 'Voice'
+    },
+    name: {
+        elementId: 'name',
+        getPythonFunc: 'get_name',
+        setPythonFunc: 'change_name',
+        defaultValue: ''
+    },
+    job: {
+        elementId: 'job',
+        getPythonFunc: 'get_job',
+        setPythonFunc: 'change_job',
+        defaultValue: ''
+    },
+    other: {
+        elementId: 'other',
+        getPythonFunc: 'get_other',
+        setPythonFunc: 'change_other',
+        defaultValue: ''
+    }
+};
+
+/**
+ * Charge TOUTES les valeurs depuis Python et remplit les champs
+ */
+async function loadAllSettings() {
+    // Attendre que pywebview.api soit prêt
+    while (!window.pywebview?.api) {
+        await new Promise(r => setTimeout(r, 100));
+    }
+
+    for (const [key, config] of Object.entries(SETTINGS_CONFIG)) {
+        try {
+            const element = document.getElementById(config.elementId);
+            if (!element) {
+                console.warn(`[loadAllSettings] Élément '${config.elementId}' introuvable`);
+                continue;
+            }
+
+            const value = await window.pywebview.api[config.getPythonFunc]();
+            // Si la valeur est vide, afficher une chaîne vide dans l'input
+            // au lieu de la valeur par défaut
+            element.value = value || "";
+            console.log(`[DEBUG] ${key} chargé: "${value}" (affiché: "${element.value}")`);
+        } catch (e) {
+            console.warn(`[loadAllSettings] Erreur pour '${key}':`, e);
+        }
+    }
+}
+
+/**
+ * Sauvegarde TOUTES les valeurs vers Python
+ */
+async function saveAllSettings() {
+    if (!window.pywebview?.api) {
+        console.error("[saveAllSettings] pywebview.api non disponible");
+        return;
+    }
+
+    for (const [key, config] of Object.entries(SETTINGS_CONFIG)) {
+        try {
+            const element = document.getElementById(config.elementId);
+            if (!element) {
+                console.warn(`[saveAllSettings] Élément '${config.elementId}' introuvable`);
+                continue;
+            }
+
+            const value = element.value.trim();
+            // Sauvegarder même si vide (permet de vider un champ volontairement)
+            await window.pywebview.api[config.setPythonFunc](value);
+            console.log(`[DEBUG] ${key} sauvegardé: "${value}"`);
+        } catch (e) {
+            console.warn(`[saveAllSettings] Erreur pour '${key}':`, e);
+        }
+    }
+}
+
+// ========== FONCTIONS D'AFFICHAGE ==========
+
+function displayTextWordByWord(text) {
+    const textDisplay = document.getElementById("text_display");
+    if (!textDisplay) return;
+
+    textDisplay.textContent = "";
+    textDisplay.style.display = "block";
+    textDisplay.style.opacity = "1";
+
+    const words = text.split(" ");
+    let index = 0;
+
+    function showNextWord() {
+        if (index < words.length) {
+            textDisplay.textContent += (index > 0 ? " " : "") + words[index];
+            index++;
+            setTimeout(showNextWord, 150);
+        } else {
+            setTimeout(() => {
+                textDisplay.style.opacity = "0";
+                setTimeout(() => {
+                    textDisplay.style.display = "none";
+                    textDisplay.textContent = "";
+                    resetUI();
+                }, 500);
+            }, 3000);
+        }
+    }
+
+    showNextWord();
+}
+
 function startListening() {
     const microEl = document.getElementById("micro");
     if (microEl) microEl.classList.add("listening");
@@ -9,18 +148,36 @@ function showThinking() {
     
     const ref = document.getElementById("reflechit");
     const ia = document.getElementById("ia_parle");
+    const textDisplay = document.getElementById("text_display");
+    
     if (ref) ref.style.display = "block";
     if (ia) ia.style.display = "none";
+    if (textDisplay) {
+        textDisplay.style.display = "none";
+        textDisplay.textContent = "";
+    }
 }
 
-function showSpeaking() {
-    const microEl = document.getElementById("micro");
-    if (microEl) microEl.classList.add("hidden");
-    
-    const ref = document.getElementById("reflechit");
-    const ia = document.getElementById("ia_parle");
-    if (ref) ref.style.display = "none";
-    if (ia) ia.style.display = "block";
+async function showSpeaking() {
+    try {
+        const statut = await window.pywebview.api.get_status();
+        
+        const microEl = document.getElementById("micro");
+        if (microEl) microEl.classList.add("hidden");
+        
+        const ref = document.getElementById("reflechit");
+        const ia = document.getElementById("ia_parle");
+        
+        if (statut === "Voice") {
+            if (ref) ref.style.display = "none";
+            if (ia) ia.style.display = "block";
+        } else if (statut === "Text") {
+            if (ref) ref.style.display = "none";
+            if (ia) ia.style.display = "none";
+        }
+    } catch (e) {
+        console.error("Erreur showSpeaking:", e);
+    }
 }
 
 function resetUI() {
@@ -29,10 +186,15 @@ function resetUI() {
     
     const ref = document.getElementById("reflechit");
     const ia = document.getElementById("ia_parle");
+    const textDisplay = document.getElementById("text_display");
+    
     if (ref) ref.style.display = "none";
     if (ia) ia.style.display = "none";
+    if (textDisplay) {
+        textDisplay.style.display = "none";
+        textDisplay.textContent = "";
+    }
 
-    // cacher le visualizer quand rien ne joue
     const canvasEl = document.getElementById("canvas");
     if (canvasEl) {
         canvasEl.style.opacity = "0";
@@ -64,7 +226,6 @@ let maxHeight = 150;
 let dataArray = null;
 let rafId = null;
 
-// Fonction pour dessiner un rectangle arrondi
 function roundRect(ctx, x, y, width, height, radius) {
     ctx.beginPath();
     ctx.moveTo(x + radius, y);
@@ -80,7 +241,6 @@ function roundRect(ctx, x, y, width, height, radius) {
     ctx.fill();
 }
 
-// Lire les variables CSS
 function readStyles() {
     const style = getComputedStyle(document.documentElement);
     barSpacing = parseInt(style.getPropertyValue('--visualizer-bar-spacing')) || 8;
@@ -94,10 +254,8 @@ function readStyles() {
     maxHeight = parseInt(style.getPropertyValue('--visualizer-bar-max-height')) || 150;
 }
 
-// Redimensionne le canvas (appelé au resize)
 function resizeCanvas() {
     if (!canvas) return;
-    // utiliser clientWidth / computed height pour correspondre au CSS
     canvas.width = canvas.clientWidth;
     const cssHeight = getComputedStyle(canvas).getPropertyValue('height');
     HEIGHT = parseInt(cssHeight) || Math.round(window.innerHeight * 0.2);
@@ -106,18 +264,15 @@ function resizeCanvas() {
     barWidth = Math.max(2, (WIDTH / barCount) - barSpacing);
 }
 
-// Initialisation unique du visualizer
 function initVisualizer() {
-    if (audioContext) return; // déjà initialisé
+    if (audioContext) return;
     readStyles();
 
-    // AudioContext + analyser
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
     analyser = audioContext.createAnalyser();
-    analyser.fftSize = 64; // moins = moins de barres à traiter
+    analyser.fftSize = 64;
     dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-    // Canvas
     canvas = document.getElementById("canvas");
     if (!canvas) return;
     ctx = canvas.getContext("2d");
@@ -126,13 +281,10 @@ function initVisualizer() {
         resizeCanvas();
     });
 
-    // Boucle d'animation unique
     function renderLoop() {
-        rafId = requestAnimationFrame(() => setTimeout(renderLoop, 33)); // ~30fps
-        // Mettre à jour styles dynamiquement si besoin
+        rafId = requestAnimationFrame(() => setTimeout(renderLoop, 33));
         readStyles();
 
-        // Si analyser non défini, afficher barres statiques minHeight
         if (!analyser) return;
 
         analyser.getByteFrequencyData(dataArray);
@@ -159,25 +311,7 @@ function initVisualizer() {
     renderLoop();
 }
 
-// Création / réutilisation de la source audio (une seule fois)
-function ensureAudioSource() {
-    const audioEl = document.getElementById("audio");
-    if (!audioContext || !audioEl) return;
-    if (!audioSource) {
-        try {
-            audioSource = audioContext.createMediaElementSource(audioEl);
-            audioSource.connect(analyser);
-            analyser.connect(audioContext.destination);
-        } catch (e) {
-            // Certains navigateurs interdisent la création multiple — on ignore si erreur
-            console.warn("ensureAudioSource:", e);
-        }
-    }
-}
-
-// Fonction de lecture appelée depuis Python
 function playAudioFile(filePath) {
-    // Supprime l'ancien élément audio et sa source
     const oldAudio = document.getElementById("audio");
     if (oldAudio) {
         try {
@@ -189,25 +323,20 @@ function playAudioFile(filePath) {
         }
     }
 
-    // Crée un nouvel élément audio
     const audio = document.createElement("audio");
     audio.id = "audio";
     audio.preload = "auto";
-    // empêcher le cache en ajoutant un timestamp si besoin
     audio.src = `${filePath}?t=${Date.now()}`;
     document.body.appendChild(audio);
 
-    // Afficher le canvas / visualizer
     const canvasEl = document.getElementById("canvas");
     if (canvasEl) {
         canvasEl.style.visibility = "visible";
         canvasEl.style.opacity = "1";
     }
 
-    // Initialise le visualizer si nécessaire
     if (!audioContext) initVisualizer();
 
-    // Crée une nouvelle source et connecte à l'analyser
     if (audioContext) {
         try {
             audioSource = audioContext.createMediaElementSource(audio);
@@ -222,15 +351,12 @@ function playAudioFile(filePath) {
         }
     }
 
-    // Forcer le navigateur à charger la nouvelle ressource
     audio.load();
 
-    // Jouer l'audio une fois que les données sont prêtes
     audio.addEventListener('loadeddata', function () {
         audio.play().catch(() => {});
     }, { once: true });
 
-    // Fin de lecture -> reset UI après délai et cacher le visualizer
     audio.onended = function () {
         setTimeout(() => {
             resetUI();
@@ -238,44 +364,12 @@ function playAudioFile(filePath) {
     };
 }
 
-
-
-// Initialiser dès que possible pour afficher les barres min au départ
 document.addEventListener('DOMContentLoaded', () => {
     initVisualizer();
+    loadAllSettings(); // ← Charge tous les settings au démarrage
 });
 
-async function initEntries() {
-    const apientry = document.getElementById("apiKey"); 
-    const keywordentry = document.getElementById("KeyWord"); 
-    const voicemenu = document.getElementById("Voicemenu"); 
-    if (!apientry || !keywordentry || !voicemenu) return;
-
-    // Attendre que pywebview.api soit prêt
-    while (!window.pywebview?.api) {
-        await new Promise(r => setTimeout(r, 100));
-    }
-
-    try {
-        // Récupérer les valeurs côté Python
-        const apiKey = await window.pywebview.api.get_api_key();
-        const keyword = await window.pywebview.api.get_keyword();
-        const voice = await window.pywebview.api.get_voice();
-
-        // NE PAS TOUCHER aux assignations existantes
-        apientry.value = apiKey || "";
-        keywordentry.value = keyword || "";
-
-        // Ajouter seulement la voix
-        voicemenu.value = voice || "nova";
-
-        console.log("[DEBUG] API Key, Keyword et Voice remplis dans l'UI");
-    } catch(e) {
-        console.warn("Erreur récupération API/Keyword/Voice:", e);
-    }
-}
-
-document.addEventListener("DOMContentLoaded", initEntries);
+// ========== POPUP SETTINGS ==========
 
 const popup = document.getElementById("popup");
 const overlay = document.getElementById("overlay");
@@ -283,30 +377,27 @@ const openBtn = document.getElementById("openBtn");
 const closeBtn = document.getElementById("closeBtn");
 const form = document.getElementById("form");
 
-// Ouvrir
 openBtn.addEventListener("click", async () => {
     popup.style.display = "flex";
     overlay.style.display = "block";
 
-    // récupérer et afficher la clé si disponible
-    if (window.pywebview && window.pywebview.api && window.pywebview.api.get_api_key && window.pywebview.api.get_keyword) {
-        try {
-            const apiKey = await window.pywebview.api.get_api_key();
-            const apientry = document.getElementById("apiKey");
-            if (apientry) apientry.value = apiKey || "";
-        } catch (e) {
-            console.warn("get_api_key failed:", e);
+    // Recharger tous les settings
+    await loadAllSettings();
+
+    // Arrêter le micro
+    try { 
+        if (window.pywebview?.api?.stop_microphone) {
+            await window.pywebview.api.stop_microphone();
         }
+    } catch(e) {
+        console.warn("Erreur stop_microphone:", e);
     }
 
-    // arrêter le micro pendant la config
-    try { if (window.pywebview && window.pywebview.api && window.pywebview.api.stop_microphone) await window.pywebview.api.stop_microphone(); } catch(e){}
-
-    // récupérer stockage et mettre à jour la progressbar
-    if (window.pywebview && window.pywebview.api && window.pywebview.api.get_stockage) {
+    // Charger le stockage
+    if (window.pywebview?.api?.get_stockage) {
         try {
             const info = await window.pywebview.api.get_stockage();
-            console.log("get_stockage ->", info); // DEBUG : regarde dans la console JS (et vérifie la console Python pour le print)
+            console.log("get_stockage ->", info);
             const percent = (info && typeof info.percent === "number") ? info.percent : 0;
             setProgress(percent);
         } catch (e) {
@@ -317,7 +408,7 @@ openBtn.addEventListener("click", async () => {
         setProgress(0);
     }
 });
-// Fermer
+
 function closePopup() {
     popup.style.display = "none";
     overlay.style.display = "none";
@@ -325,35 +416,44 @@ function closePopup() {
 
 closeBtn.addEventListener("click", () => {
     closePopup();
-    if (window.pywebview) window.pywebview.api.start_microphone();
+    if (window.pywebview?.api?.start_microphone) {
+        window.pywebview.api.start_microphone();
+    }
 });
 
 overlay.addEventListener("click", () => {
     closePopup();
-    if (window.pywebview) window.pywebview.api.start_microphone();
+    if (window.pywebview?.api?.start_microphone) {
+        window.pywebview.api.start_microphone();
+    }
 });
 
-// Empêcher la fermeture en cliquant dans le formulaire
 form.addEventListener("click", (e) => {
     e.stopPropagation();
 });
 
-const restartbtn = document.getElementById("Restart");
+// ========== BOUTONS D'ACTION ==========
 
+const restartbtn = document.getElementById("Restart");
 restartbtn.addEventListener("click", async () => {
     await window.pywebview.api.restart_pi();
 });
 
 const shutdownbtn = document.getElementById("Shutdown");
-
 shutdownbtn.addEventListener("click", async () => {
     await window.pywebview.api.shutdown_pi();
 });
 
-const updatebtn = document.getElementById("update");
+const newchatbtn = document.getElementById("newchat");
+newchatbtn.addEventListener("click", async () => {
+    await window.pywebview.api.reset_conversation();
+    showNewchat();
+});
 
+
+const updatebtn = document.getElementById("update");
 updatebtn.addEventListener("click", async () => {
-    if (window.pywebview && window.pywebview.api && window.pywebview.api.update) {
+    if (window.pywebview?.api?.update) {
         try {
             await window.pywebview.api.update();
         } catch(e) {
@@ -363,40 +463,19 @@ updatebtn.addEventListener("click", async () => {
 });
 
 const savebtn = document.getElementById("savebtn");
-
 savebtn.addEventListener("click", async () => {
-    const apientry = document.getElementById("apiKey");
-    const keywordentry = document.getElementById("KeyWord");
-    const menuvoix = document.getElementById("Voicemenu");
-
-    const apiKey = apientry.value.trim();
-    const keyword = keywordentry.value.trim();
-    const voicemenu = menuvoix.value.trim();
-
-    if (window.pywebview && window.pywebview.api) {
-        try {
-            await window.pywebview.api.change_api(apiKey);
-            await window.pywebview.api.change_keyword(keyword);
-            await window.pywebview.api.change_voice(voicemenu);
-            console.log("API Key et Keyword mis à jour !");
-        } catch (e) {
-            console.warn("Erreur mise à jour API/Keyword:", e);
-        }
-    }
+    await saveAllSettings(); // ← Sauvegarde tous les settings en une ligne !
+    console.log("✅ Tous les paramètres sauvegardés !");
 });
 
+// ========== GESTION DES ERREURS ==========
 
-/**
- * Arrête la lecture, masque le loader/visualizer et nettoie l'audio.
- */
 function stopPlaybackAndLoader() {
     try { resetUI(); } catch (e) { console.warn("resetUI absent:", e); }
 
-    // Masquer loader visuel si présent
     const loaderEl = document.querySelector('.loader') || document.getElementById('reflechit');
     if (loaderEl) loaderEl.style.display = 'none';
 
-    // Arrêter et supprimer l'audio courant
     const audio = document.getElementById('audio');
     if (audio) {
         try {
@@ -409,7 +488,6 @@ function stopPlaybackAndLoader() {
         }
     }
 
-    // Si AudioContext tourne, le suspendre (optionnel)
     try {
         if (audioContext && audioContext.state !== 'closed') {
             audioContext.suspend().catch(()=>{});
@@ -418,7 +496,6 @@ function stopPlaybackAndLoader() {
         console.warn("Erreur suspension audioContext:", e);
     }
 
-    // stop animation frames si nécessaire
     try {
         if (typeof rafId !== 'undefined' && rafId) {
             cancelAnimationFrame(rafId);
@@ -427,10 +504,6 @@ function stopPlaybackAndLoader() {
     } catch (e) {}
 }
 
-/**
- * Affiche un message d'erreur centralisé et arrête tout ce qui charge/joue.
- * options: { autoHide: true|false, timeout: ms }
- */
 function showError(message, options = {}) {
     if (!message) message = "Une erreur est survenue.";
     stopPlaybackAndLoader();
@@ -440,9 +513,8 @@ function showError(message, options = {}) {
         el.innerText = message;
         el.style.display = "block";
         el.style.color = "red";
-        // possibilité d'ajouter animation / style ici
         if (options.autoHide !== false) {
-            const t = typeof options.timeout === 'number' ? options.timeout : 6000;
+            const t = typeof options.timeout === 'number' ? options.timeout : 10000;
             setTimeout(() => {
                 try { el.style.display = "none"; el.innerText = ""; } catch(e) {}
             }, t);
@@ -451,20 +523,17 @@ function showError(message, options = {}) {
         console.warn("showError: élément .error introuvable — message:", message);
     }
 
-    // log côté console pour debug
     console.error("UI Error:", message);
 }
 
 function showInfo(message, options = {}) {
-
     const el = document.querySelector('.error');
     if (el) {
         el.innerText = message;
         el.style.display = "block";
         el.style.color = "#00ad00ff";
-        // possibilité d'ajouter animation / style ici
         if (options.autoHide !== false) {
-            const t = typeof options.timeout === 'number' ? options.timeout : 30000;
+            const t = typeof options.timeout === 'number' ? options.timeout : 10000;
             setTimeout(() => {
                 try { el.style.display = "none"; el.innerText = ""; } catch(e) {}
             }, t);
@@ -473,11 +542,9 @@ function showInfo(message, options = {}) {
         console.warn("showinfo: élément .error introuvable — message:", message);
     }
 
-    // log côté console pour debug
     console.error("UI Error:", message);
 }
 
-/* Helpers spécifiques (appelables depuis Python via evaluate_js) */
 function showApiError() {
     showError("Invalid API key. Please check your key and try again.");
 }
@@ -496,19 +563,19 @@ function showParamError() {
 function showGeneralError(msg) {
     showError(msg || "An unexpected error occurred.");
 }
-
 function showplateformError(msg) {
     showError(msg || "Execute this command in a Linux platform.");
 }
-
 function showUpdateAvailable() {
     showInfo("A new version of the application is available! Please update to the latest version in the settings.");
+}
+function showNewchat() {
+    showInfo("New conversation started.");
 }
 
 function setProgress(percent) {
     if (percent < 0) percent = 0;
     if (percent > 100) percent = 100;
-    progress = percent;
 
     const progressBar = document.getElementById("myProgress");
     const progressText = document.getElementById("progressText");
@@ -517,3 +584,207 @@ function setProgress(percent) {
     progressText.textContent = percent + "%";
 }
 
+// ========== CLAVIER VIRTUEL ==========
+
+class VirtualKeyboard {
+    constructor() {
+        this.isUppercase = false;
+        this.currentInput = null;
+        this.init();
+    }
+
+    init() {
+        this.createKeyboard();
+        this.attachEventListeners();
+    }
+
+    createKeyboard() {
+        const keyboardHTML = `
+            <div class="virtual-keyboard" id="virtualKeyboard">
+                <button class="keyboard-close">×</button>
+                
+                <div class="keyboard-row">
+                    ${this.createKeys(['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'])}
+                </div>
+                
+                <div class="keyboard-row">
+                    ${this.createKeys(['a', 'z', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'])}
+                </div>
+                
+                <div class="keyboard-row">
+                    ${this.createKeys(['q', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'm'])}
+                </div>
+                
+                <div class="keyboard-row">
+                    <button class="keyboard-key shift" data-action="shift">⇧</button>
+                    ${this.createKeys(['w', 'x', 'c', 'v', 'b', 'n'])}
+                    <button class="keyboard-key" data-action="backspace">⌫</button>
+                </div>
+                
+                <div class="keyboard-row">
+                    <button class="keyboard-key" data-char="-">-</button>
+                    <button class="keyboard-key" data-char=".">.</button>
+                    <button class="keyboard-key space" data-char=" ">Espace</button>
+                    <button class="keyboard-key" data-action="enter">Entrer</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', keyboardHTML);
+        this.keyboard = document.getElementById('virtualKeyboard');
+    }
+
+    createKeys(keys) {
+        return keys.map(key => 
+            `<button class="keyboard-key" data-char="${key}">${key}</button>`
+        ).join('');
+    }
+
+    attachEventListeners() {
+        // Fermeture du clavier
+        this.keyboard.querySelector('.keyboard-close').addEventListener('click', () => {
+            this.hide();
+        });
+
+        // Touches du clavier
+        this.keyboard.addEventListener('click', (e) => {
+            if (e.target.classList.contains('keyboard-key')) {
+                const char = e.target.getAttribute('data-char');
+                const action = e.target.getAttribute('data-action');
+
+                if (char) {
+                    this.insertCharacter(char);
+                } else if (action === 'shift') {
+                    this.toggleShift();
+                } else if (action === 'backspace') {
+                    this.backspace();
+                } else if (action === 'enter') {
+                    this.hide();
+                }
+            }
+        });
+
+        // Fermer en cliquant à l'extérieur
+        document.addEventListener('click', (e) => {
+            if (this.isVisible() && !this.keyboard.contains(e.target) && 
+                !e.target.matches('input[type="text"]')) {
+                this.hide();
+            }
+        });
+    }
+
+    show(inputElement) {
+        this.currentInput = inputElement;
+        this.keyboard.style.display = 'flex';
+        
+        // Positionner le clavier
+        const rect = inputElement.getBoundingClientRect();
+        if (rect.bottom + 200 > window.innerHeight) {
+            this.keyboard.style.bottom = '0';
+        } else {
+            this.keyboard.style.bottom = '0';
+        }
+    }
+
+    hide() {
+        this.keyboard.style.display = 'none';
+        this.currentInput = null;
+        this.resetShift();
+    }
+
+    isVisible() {
+        return this.keyboard.style.display === 'flex';
+    }
+
+    insertCharacter(char) {
+        if (!this.currentInput) return;
+
+        const start = this.currentInput.selectionStart;
+        const end = this.currentInput.selectionEnd;
+        const value = this.currentInput.value;
+        
+        // Caractère avec gestion de la casse
+        const finalChar = this.isUppercase ? char.toUpperCase() : char;
+        
+        // Insérer le caractère
+        this.currentInput.value = value.substring(0, start) + finalChar + value.substring(end);
+        
+        // Positionner le curseur
+        this.currentInput.selectionStart = this.currentInput.selectionEnd = start + 1;
+        
+        // Déclencher l'événement input
+        this.currentInput.dispatchEvent(new Event('input', { bubbles: true }));
+        
+        // Réinitialiser shift après une touche (comportement standard)
+        if (this.isUppercase) {
+            this.resetShift();
+        }
+    }
+
+    backspace() {
+        if (!this.currentInput) return;
+
+        const start = this.currentInput.selectionStart;
+        const end = this.currentInput.selectionEnd;
+        const value = this.currentInput.value;
+
+        if (start === end && start > 0) {
+            // Supprimer un caractère
+            this.currentInput.value = value.substring(0, start - 1) + value.substring(end);
+            this.currentInput.selectionStart = this.currentInput.selectionEnd = start - 1;
+        } else if (start !== end) {
+            // Supprimer la sélection
+            this.currentInput.value = value.substring(0, start) + value.substring(end);
+            this.currentInput.selectionStart = this.currentInput.selectionEnd = start;
+        }
+        
+        this.currentInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    toggleShift() {
+        this.isUppercase = !this.isUppercase;
+        this.updateKeysCase();
+        
+        const shiftKey = this.keyboard.querySelector('[data-action="shift"]');
+        shiftKey.classList.toggle('active', this.isUppercase);
+    }
+
+    resetShift() {
+        this.isUppercase = false;
+        this.updateKeysCase();
+        
+        const shiftKey = this.keyboard.querySelector('[data-action="shift"]');
+        shiftKey.classList.remove('active');
+    }
+
+    updateKeysCase() {
+        const keys = this.keyboard.querySelectorAll('[data-char]');
+        keys.forEach(key => {
+            const char = key.getAttribute('data-char');
+            if (char && char.length === 1 && /[a-z]/.test(char)) {
+                key.textContent = this.isUppercase ? char.toUpperCase() : char;
+            }
+        });
+    }
+}
+
+// Initialisation du clavier virtuel
+let virtualKeyboard;
+
+document.addEventListener('DOMContentLoaded', () => {
+    virtualKeyboard = new VirtualKeyboard();
+    
+    // Attacher le clavier virtuel à tous les inputs de texte
+    const textInputs = document.querySelectorAll('input[type="text"]');
+    textInputs.forEach(input => {
+        input.addEventListener('focus', (e) => {
+            virtualKeyboard.show(e.target);
+        });
+        
+        // Empêcher l'ouverture du clavier physique sur mobile
+        input.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            virtualKeyboard.show(e.target);
+        });
+    });
+});

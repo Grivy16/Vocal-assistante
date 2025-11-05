@@ -10,7 +10,9 @@
 </head>
 <body>
 <header>
-<button id="openBtn"></button>
+<button id="openBtn" style="--position-y:20px;"></button>
+<button id="newchat" style="--position-y:80px;">×</button>
+
 <div class="overlay" id="overlay"></div>
 <div class="popup" id="popup">
     <form id="form">
@@ -27,9 +29,9 @@
             <div class="API">
                 <p>API key :</p>
                 <input type="text" id="apiKey" name="apiKey" placeholder="Enter your API key here">
-                <button class="faq-button" type="button" style="--tooltip-offset:-100px;">
+                <button class="faq-button" type="button" style="--tooltip-offset:-120px;">
                     <h10>?</h10>
-                <span class="tooltip">Enter your api key for ChatGPT <span>
+                <span class="tooltip">Enter your api key for ChatGPT</span>
                 </button>
             </div>
             <div class="Word">
@@ -48,12 +50,49 @@
                     <option value="echo">echo</option>
                 </select>
             </div>
+            <div class="Voice">
+                <p>Mode :</p>
+                <select id="Modemenu">
+                    <option value="Voice">Voice</option>
+                    <option value="Text">Text</option>
+                </select>
+                <button class="faq-button" type="button"style="--tooltip-offset:-185px;">
+                    <h10>?</h10>
+                <span class="tooltip">Voice: audio response with visualizer. Text: word-by-word display.</span>
+                </button>
+            </div>
         </div>
         <div class="content">
             <div class="Voice">
                 <button type="button" id="Shutdown">Shutdown</button>
                 <button type="button" id="Restart">Restart</button>
                 <button type="button" id="update">Update</button>
+            </div>
+        </div>
+        <div class="content">
+            <div class="Voice">
+                <p>Name :</p>
+                <input type="text" id="name" name="Name" placeholder="Enter your name here">
+                <button class="faq-button" type="button"style="--tooltip-offset:-100px;">
+                    <h10>?</h10>
+                <span class="tooltip">You can put nothing</span>
+                </button>
+            </div>
+            <div class="Voice">
+                <p>Job :</p>
+                <input type="text" id="job" name="job" placeholder="Enter your Job here">
+                <button class="faq-button" type="button"style="--tooltip-offset:-100px;">
+                    <h10>?</h10>
+                <span class="tooltip">You can put nothing</span>
+                </button>
+            </div>
+            <div class="Voice">
+                <p>Other :</p>
+                <input type="text" id="other" name="other" placeholder="Enter other info here">
+                <button class="faq-button" type="button"style="--tooltip-offset:-100px;">
+                    <h10>?</h10>
+                <span class="tooltip">You can put nothing</span>
+                </button>
             </div>
         </div>
     </div>
@@ -72,7 +111,8 @@
     </svg>
     <div class="loader" id="reflechit" style="display:none;"></div>
     <p id="reflechit" style="display:none;"></p>
-    <p id="ia_parle" style="display:none;"></p>    
+    <p id="ia_parle" style="display:none;"></p>
+    <div id="text_display" style="display:none;"></div>
     <audio id="audio"></audio>
     <canvas id="canvas"></canvas>
 </main>
